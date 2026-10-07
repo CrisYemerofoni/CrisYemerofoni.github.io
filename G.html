@@ -1,14 +1,38 @@
-<!doctype html><html lang="es"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>YemeroFoni · Gulf</title>
-<style>:root{--bg:#1E2A44;--moon:#8DC6E8;--acc:#F27321}*{box-sizing:border-box}body{margin:0;min-height:100vh;background:radial-gradient(circle at 50% 28%,#ffffff18,transparent 55%),var(--bg);color:#f4ecd8;font-family:system-ui,-apple-system,Segoe UI,Roboto,sans-serif;display:flex;flex-direction:column;align-items:center;padding:36px 16px 40px;text-align:center}
-.m{width:190px;height:190px;border-radius:50%;box-shadow:-38px 10px 0 0 var(--moon);transform:translateX(30px) rotate(-12deg);margin:20px 0 10px;animation:f 4s ease-in-out infinite;filter:drop-shadow(0 0 24px var(--moon))}
-@keyframes f{50%{transform:translateX(30px) translateY(-10px) rotate(-16deg)}}
-h1{margin:18px 0 4px;font-size:2rem;color:var(--acc);letter-spacing:.5px}p{margin:0 0 22px;opacity:.85}
-a.b{display:block;width:min(88vw,360px);margin:8px auto;padding:14px;border-radius:14px;text-decoration:none;font-weight:700}
-.main{background:var(--acc);color:#111}.ar{background:#f4ecd8;color:#111;font-size:1.1rem;padding:18px}.sec{border:2px solid #f4ecd855;color:#f4ecd8}small{margin-top:26px;opacity:.6}small a{color:inherit}</style></head><body>
-<div class="m" aria-hidden="true"></div><h1>YemeroFoni</h1><p>Luna <b>Gulf</b> · este sticker suena a: <b>RYTHM · Yemerophonia</b></p>
-<a class="b ar" href="ar.html?s=G">🌙 Dale vida a tu sticker (realidad aumentada)</a>
-<!-- PEGA TUS LINKS REALES EN LOS href -->
-<a class="b main" href="https://open.spotify.com/track/1u8MvHPB3R1YxZIjiBzuYB" target="_blank" rel="noopener">▶ Escuchar RYTHM · Yemerophonia</a>
-<a class="b sec" href="https://instagram.com/yemerofoni.visuals">Instagram · visuales</a>
-<a class="b sec" href="https://wa.me/522283045425?text=Hola%20YemeroFoni%2C%20escane%C3%A9%20tu%20sticker%20Racing%20y%20quiero%20visuales%20para%20mi%20proyecto" target="_blank" rel="noopener">Quiero visuales para mi proyecto</a>
-<small>Colección de 4 lunas · <a href="./">ver todas</a></small></body></html>
+<!doctype html><html lang="es"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"><meta name="theme-color" content="#8DC6E8"><title>YemeroFoni · Luna Racing</title><link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin><link href="https://fonts.googleapis.com/css2?family=Fredoka:wght@500;600;700&display=swap" rel="stylesheet">
+<style>:root{--plate:#FFFFFF;--fg:#1E2A44;--acc:#F27321;--txt:#1E2A44;--tail:#8DC6E8;--sec:#ffffff55}*{box-sizing:border-box;margin:0}
+html{background:var(--tail)}body{font-family:Fredoka,system-ui,sans-serif;-webkit-font-smoothing:antialiased;color:var(--txt)}
+.pg{--w:min(100vw,480px);position:relative;width:var(--w);min-height:100svh;margin:0 auto;background-color:var(--tail);overflow:hidden;padding-top:calc(var(--w)*.715);padding-bottom:28px}
+.pg>*{position:relative}#bg{position:absolute!important;left:0;top:0;z-index:0}.luna{position:absolute!important;width:calc(var(--w)*.479);left:calc(var(--w)*.5044 - var(--w)*.2395);top:calc(var(--w)*.095)}
+.in{width:calc(var(--w)*.84);margin:0 auto;display:flex;flex-direction:column;align-items:center;text-align:center}
+a.b{display:flex;align-items:center;justify-content:center;gap:10px;width:100%;margin:5px 0;padding:14px;border-radius:12px;text-decoration:none;font-weight:600;font-size:1.02rem}
+a.b:active{transform:scale(.97)}svg{width:20px;height:20px;flex:none}
+.ar{width:calc(var(--w)*.62)!important;min-height:calc(var(--w)*.2);background:var(--plate);color:var(--fg);font-weight:700!important;font-size:1.12rem!important;line-height:1.15;flex-direction:column;gap:4px!important;margin:0 0 10px!important;box-shadow:0 6px 18px #0004;}
+.ar svg{width:28px;height:28px}.ar small{font-size:.74rem;font-weight:500;opacity:.7}
+.now{font-size:.95rem;margin:6px 0 12px}.now b{font-weight:700}
+.sp{background:var(--acc);color:#111;font-weight:700!important}
+.sec{background:var(--sec);border:1.5px solid var(--txt);color:var(--txt);backdrop-filter:blur(4px)}
+footer{margin-top:16px;font-size:.85rem;opacity:.75}footer a{color:inherit}</style></head><body>
+<div class="pg"><canvas id="bg" aria-hidden="true"></canvas><script>
+(function(){const K="G",cv=document.getElementById('bg'),pg=document.querySelector('.pg');
+function rng(a){return function(){a|=0;a=a+0x6D2B79F5|0;let t=Math.imul(a^a>>>15,1|a);t=t+Math.imul(t^t>>>7,61|t)^t;return((t^t>>>14)>>>0)/4294967296}}
+function draw(){const W=pg.clientWidth,H=Math.max(pg.scrollHeight,innerHeight),d=Math.min(devicePixelRatio||1,2);
+cv.width=W*d;cv.height=H*d;cv.style.width=W+'px';cv.style.height=H+'px';const c=cv.getContext('2d');c.scale(d,d);
+const C=W/2,S=W/1800,r=rng(7),A=W*H/(W*W);
+const dots=(n,cols,rad,amin)=>{for(let i=0;i<n;i++){const x=r()*W,y=r()*H,rr=rad[Math.floor(r()*rad.length)]*S,col=cols(r());c.globalAlpha=amin+r()*(1-amin);c.fillStyle=col;c.beginPath();c.arc(x,y,rr,0,7);c.fill()}c.globalAlpha=1};
+if(K==='N'){const g=c.createLinearGradient(0,0,0,H);const f=.62*W/H;g.addColorStop(0,'#251B56');g.addColorStop(f,'#2F2461');g.addColorStop(f+(1-f)*.45,'#4a3a74');g.addColorStop(1,'#906F9A');c.fillStyle=g;c.fillRect(0,0,W,H);
+ dots(700*A,v=>v<.8?'#D4E2D5':'#F3E08A',[1.9,2.5,2.5,3.75,3.75,5],.6);
+ c.fillStyle='#D4E2D5';for(let i=0;i<14*A;i++){const x=20+r()*(W-40),y=20+r()*(H-40),s=(12+r()*13)*S*1.25;c.beginPath();[[0,-1],[.22,-.22],[1,0],[.22,.22],[0,1],[-.22,.22],[-1,0],[-.22,-.22]].forEach((p,j)=>c[j?'lineTo':'moveTo'](x+p[0]*s,y+p[1]*s));c.fill()}}
+if(K==='O'){const g=c.createRadialGradient(C,C,0,C,C,C);g.addColorStop(0,'#2A2140');g.addColorStop(1,'#131019');c.fillStyle='#131019';c.fillRect(0,0,W,H);c.fillStyle=g;c.fillRect(0,0,W,W);
+ dots(180*A,()=>'#E7C815',[2,2,3,4],.47);}
+if(K==='G'){const k=W/900;c.fillStyle='#8DC6E8';c.fillRect(0,0,W,H);c.fillStyle='#F27321';c.fillRect(0,C-120*k,W,240*k);c.fillStyle='#1E2A44';c.fillRect(0,C-140*k,W,12*k);c.fillRect(0,C+128*k,W,12*k);}
+if(K==='M'){c.fillStyle='#FBF4E4';c.fillRect(0,0,W,H);c.fillStyle='#F6D9A8';const n=30,R=3*H;for(let i=0;i<n;i++){const a0=2*Math.PI*i/n;c.beginPath();c.moveTo(C,C);c.arc(C,C,R,a0,a0+Math.PI/n);c.fill()}}
+const ring={N:'#D4E2D5',O:'#F4ECD8',G:'#FFFFFF',M:'#151311'}[K];c.globalAlpha=200/255;c.strokeStyle=ring;c.lineWidth=Math.max(2,7*S);const i=71*S;c.beginPath();c.arc(C,C,C-i,0,7);c.stroke();c.globalAlpha=1}
+draw();let t;addEventListener('resize',()=>{clearTimeout(t);t=setTimeout(draw,150)});document.fonts&&document.fonts.ready.then(draw)})();</script><img class="luna" src="G_luna.png" alt="Luna Racing de YemeroFoni">
+<div class="in">
+<a class="b ar" href="ar.html?s=G"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M4 8V5a1 1 0 0 1 1-1h3M16 4h3a1 1 0 0 1 1 1v3M20 16v3a1 1 0 0 1-1 1h-3M8 20H5a1 1 0 0 1-1-1v-3"/><circle cx="12" cy="12" r="3.2"/></svg>Dale vida a tu sticker<small>realidad aumentada</small></a>
+<p class="now">Luna <b>Racing</b> · suena a <b>RYTHM</b> · Yemerophonia</p>
+<a class="b sp" href="https://open.spotify.com/track/1u8MvHPB3R1YxZIjiBzuYB" target="_blank" rel="noopener"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7z"/></svg>Escuchar RYTHM</a>
+<a class="b sec" href="https://wa.me/522283045425?text=Hola%20YemeroFoni%2C%20escane%C3%A9%20tu%20sticker%20Racing%20y%20quiero%20visuales%20para%20mi%20proyecto" target="_blank" rel="noopener"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"><path d="M4 20l1.3-3.9A8 8 0 1 1 8 19z"/></svg>Quiero visuales para mi proyecto</a>
+<a class="b sec" href="https://instagram.com/yemerofoni.visuals" target="_blank" rel="noopener"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="5"/><circle cx="12" cy="12" r="4"/><circle cx="17.5" cy="6.5" r="1" fill="currentColor"/></svg>@yemerofoni.visuals</a>
+<footer>Colecciona las 4 lunas · <a href="./">ver todas</a></footer>
+</div></div></body></html>
