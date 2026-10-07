@@ -29,29 +29,35 @@
 <div class="ov" id="start">
   <h1>YemeroFoni</h1>
   <p id="intro">Apunta la cámara a tu sticker y súbele el volumen.</p>
-  <button class="btn" id="go">▶ Activar luna</button>
+  <button class="btn" id="go">▶ Despertar a la luna</button>
   <div id="err"></div>
 </div>
 <div id="hint" class="off">Apunta al sticker completo 🌙</div>
 
 <script type="module">
 import * as THREE from 'three';
-import { MindARThree } from 'mindar-image-three';
 
 const P = new URLSearchParams(location.search);
 const K = (P.get('s') || 'N').toUpperCase().replace(/[^NOGM]/g,'') || 'N';
+const DEMO = P.has('demo');
 const THEMES = {
-  N:{name:'Noche',   track:'Reyes del After', fx:'estrellas', c1:'#D4E2D5', c2:'#8BD450', c3:'#F3E08A'},
-  O:{name:'Original',track:'DARK',            fx:'constelacion', c1:'#E7C815', c2:'#18A162', c3:'#D6365D'},
-  G:{name:'Gulf',    track:'RYTHM',           fx:'velocidad', c1:'#F27321', c2:'#8DC6E8', c3:'#FFFFFF'},
-  M:{name:'Monarca', track:'Algo Leve',       fx:'mariposas', c1:'#E8761E', c2:'#151311', c3:'#FBF4E4'},
+  N:{name:'Noche',   track:'Reyes del After', fx:'estrellas',    c1:'#D4E2D5', c2:'#8BD450', c3:'#F3E08A', smoke:'#F7F7F2'},
+  O:{name:'Original',track:'DARK',            fx:'constelacion', c1:'#E7C815', c2:'#18A162', c3:'#D6365D', smoke:'#EDEDED'},
+  G:{name:'Racing',  track:'RYTHM',           fx:'velocidad',    c1:'#F27321', c2:'#8DC6E8', c3:'#FFFFFF', smoke:'#FFFFFF'},
+  M:{name:'Monarca', track:'Algo Leve',       fx:'mariposas',    c1:'#E8761E', c2:'#151311', c3:'#FBF4E4', smoke:'#FBF4E4'},
 };
 const T = THEMES[K];
 document.getElementById('intro').textContent = `Luna ${T.name} · suena "${T.track}". Apunta la cámara a tu sticker y súbele el volumen.`;
 
-/* ---------- utilidades de textura ---------- */
+/* azar con semilla (el modo demo es repetible) */
+let seed = 7; const rnd = DEMO ? ()=>{seed=(seed*16807)%2147483647;return (seed-1)/2147483646;} : Math.random;
+
+/* ---------- texturas dibujadas ---------- */
 function canvasTex(w,h,draw){const c=document.createElement('canvas');c.width=w;c.height=h;draw(c.getContext('2d'),w,h);const t=new THREE.CanvasTexture(c);t.encoding=THREE.sRGBEncoding;return t;}
-const dotTex = (col)=>canvasTex(64,64,(g,w,h)=>{const r=g.createRadialGradient(32,32,0,32,32,32);r.addColorStop(0,col);r.addColorStop(.35,col);r.addColorStop(1,'rgba(0,0,0,0)');g.fillStyle=r;g.fillRect(0,0,w,h);});
+const softTex = (col)=>canvasTex(128,128,(g,w,h)=>{const r=g.createRadialGradient(64,64,0,64,64,64);r.addColorStop(0,col);r.addColorStop(.45,col);r.addColorStop(1,'rgba(0,0,0,0)');g.globalAlpha=.9;g.fillStyle=r;g.fillRect(0,0,w,h);});
+const glowTex = canvasTex(128,128,(g)=>{const r=g.createRadialGradient(64,64,0,64,64,64);r.addColorStop(0,'rgba(255,240,200,1)');r.addColorStop(.18,'rgba(255,150,60,.9)');r.addColorStop(.5,'rgba(255,80,30,.25)');r.addColorStop(1,'rgba(255,60,20,0)');g.fillStyle=r;g.fillRect(0,0,128,128);});
+const shadowTex = canvasTex(128,128,(g)=>{const r=g.createRadialGradient(64,64,0,64,64,64);r.addColorStop(0,'rgba(0,0,0,.75)');r.addColorStop(1,'rgba(0,0,0,0)');g.fillStyle=r;g.fillRect(0,0,128,128);});
+const ringTex = (col)=>canvasTex(256,256,(g)=>{g.strokeStyle=col;g.lineWidth=26;g.globalAlpha=.85;g.filter='blur(6px)';g.beginPath();g.arc(128,128,90,0,7);g.stroke();});
 const starTex = (col)=>canvasTex(64,64,(g)=>{g.translate(32,32);g.fillStyle=col;g.beginPath();for(let i=0;i<10;i++){const a=i*Math.PI/5-Math.PI/2,r=i%2?11:30;g.lineTo(Math.cos(a)*r,Math.sin(a)*r);}g.closePath();g.fill();});
 const flyTex = (wing,edge,spot,open)=>canvasTex(128,128,(g)=>{g.translate(64,64);const s=open;
   for(const sx of [-1,1]){g.save();g.scale(sx*s,1);
@@ -73,119 +79,218 @@ function setupAudio(){
   src.connect(analyser); analyser.connect(actx.destination);
   freq = new Uint8Array(analyser.frequencyBinCount);
 }
-let kick=0, kickAvg=0, energy=0, lastKick=0;
+let kick=0, kickAvg=0, energy=0, lastKick=-9, kicks=0;
 function readAudio(t){
+  if(DEMO){ const b=Math.floor(t*2.08); if(b>kicks){kicks=b; kick=1; lastKick=t; onKick(t);} energy=.35; kick*=.86; return; } // 125 BPM simulado
   if(!analyser) return;
   analyser.getByteFrequencyData(freq);
-  let lo=0; for(let i=1;i<6;i++) lo+=freq[i]; lo/=5*255;           // ~40–220 Hz
+  let lo=0; for(let i=1;i<6;i++) lo+=freq[i]; lo/=5*255;
   let all=0; for(let i=0;i<freq.length;i++) all+=freq[i]; energy=all/(freq.length*255);
   kickAvg = kickAvg*0.95 + lo*0.05;
-  if(lo > kickAvg*1.18 && lo>0.45 && t-lastKick>0.22){ kick=1; lastKick=t; onKick(); }
+  if(lo > kickAvg*1.18 && lo>0.45 && t-lastKick>0.22){ kick=1; lastKick=t; kicks++; onKick(t); }
   kick *= 0.88;
 }
 
-/* ---------- escena AR ---------- */
+/* ---------- escena ---------- */
 const meta = await fetch('meta.json').then(r=>r.json()).then(m=>m[K]);
-const mind = new MindARThree({ container: document.getElementById('ar'), imageTargetSrc: `${K}.mind`,
-  uiLoading:'no', uiScanning:'no', uiError:'no', filterMinCF:0.0001, filterBeta:0.001 });
-const { renderer, scene, camera } = mind;
+const C = meta.capas;
+let renderer, scene, camera, mind=null, anchorGroup;
+if(DEMO){
+  renderer = new THREE.WebGLRenderer({antialias:true,preserveDrawingBuffer:true}); renderer.setPixelRatio(Math.min(devicePixelRatio,2));
+  renderer.setSize(innerWidth,innerHeight); document.getElementById('ar').appendChild(renderer.domElement);
+  scene = new THREE.Scene(); scene.background = new THREE.Color('#8a6a4d');
+  camera = new THREE.PerspectiveCamera(42, innerWidth/innerHeight, 0.01, 20);
+  const ang = parseFloat(P.get('ang')||'38')*Math.PI/180, dist=1.75;
+  camera.position.set(0.0, -Math.sin(ang)*dist, Math.cos(ang)*dist); camera.lookAt(0,0.02,0.1);
+  anchorGroup = new THREE.Group(); scene.add(anchorGroup);
+} else {
+  const { MindARThree } = await import('mindar-image-three');
+  mind = new MindARThree({ container: document.getElementById('ar'), imageTargetSrc: `${K}.mind`,
+    uiLoading:'no', uiScanning:'no', uiError:'no', filterMinCF:0.0001, filterBeta:0.001 });
+  ({ renderer, scene, camera } = mind);
+  const anchor = mind.addAnchor(0); anchorGroup = anchor.group;
+  anchor.onTargetFound = ()=>{found=true; foundAt=clockT; document.getElementById('hint').classList.add('off'); if(audioEl&&audioEl.paused) audioEl.play();};
+  anchor.onTargetLost  = ()=>{found=false; document.getElementById('hint').classList.remove('off'); if(audioEl) audioEl.pause();};
+}
 renderer.outputEncoding = THREE.sRGBEncoding;
-const anchor = mind.addAnchor(0);
-const root = new THREE.Group(); anchor.group.add(root);
-const ov=(o,n)=>{o.renderOrder=n;o.traverse(c=>{if(c.material){c.material.depthTest=false;c.material.depthWrite=false;}});return o;};
+const root = new THREE.Group(); anchorGroup.add(root);
+const ord=(o,n)=>{o.renderOrder=n;o.traverse(c=>{if(c.material){c.material.depthTest=false;c.material.depthWrite=false;}});return o;};
 const loader = new THREE.TextureLoader();
 const tex = (u)=>{const t=loader.load(u);t.encoding=THREE.sRGBEncoding;return t;};
+const atlas = tex(`${K}_capas.png`);
+// convierte una capa del atlas en un plano (coordenadas: unidades del sticker, ancho = 1)
+function layer(n){
+  const r=C[n], g=new THREE.PlaneGeometry(r.w*meta.w, r.h*meta.h), uv=g.attributes.uv;
+  for(let i=0;i<uv.count;i++){uv.setXY(i, uv.getX(i)?r.u1:r.u0, uv.getY(i)?r.v1:r.v0);}
+  const m=new THREE.Mesh(g,new THREE.MeshBasicMaterial({map:atlas,transparent:true}));
+  m.userData.home=new THREE.Vector2(meta.cx + r.x*meta.w, meta.cy + r.y*meta.h); return m;
+}
+const L2S=(x,y)=>new THREE.Vector2(meta.cx+(x-0.5)*meta.w, meta.cy+(0.5-y)*meta.h); // punto de la capa luna (0..1, y hacia abajo) -> sticker
 
-// 1) fondo del sticker sin la luna (tapa la luna impresa para poder moverla)
+// 1) fondo impreso sin luna ni texto + el texto "YemeroFoni" que se queda pegado al sticker
 const bg = new THREE.Mesh(new THREE.CircleGeometry(0.5,96), new THREE.MeshBasicMaterial({map:tex(`${K}_bg.png`),transparent:true}));
-ov(bg,0); root.add(bg);
-// halo que late con el bombo
+ord(bg,0); root.add(bg);
+const text = layer('text'); text.position.set(text.userData.home.x,text.userData.home.y,0.001); ord(text,2); root.add(text);
+// halo del borde y ondas
 const halo = new THREE.Mesh(new THREE.RingGeometry(0.5,0.56,96), new THREE.MeshBasicMaterial({color:T.c1,transparent:true,opacity:0}));
-halo.position.z=0.001; ov(halo,1); root.add(halo);
-// 2) la luna, separada y "flotando"
-const moonPivot = new THREE.Group(); moonPivot.position.set(meta.cx, meta.cy - meta.h*0.30, 0.02); root.add(moonPivot);
-const moonMesh = new THREE.Mesh(new THREE.PlaneGeometry(meta.w, meta.h), new THREE.MeshBasicMaterial({map:tex(`${K}_luna.png`),transparent:true}));
-moonMesh.position.y = meta.h*0.30; moonPivot.add(moonMesh); ov(moonMesh,3);
-const shadow = new THREE.Mesh(new THREE.CircleGeometry(meta.w*0.42,48), new THREE.MeshBasicMaterial({color:0x000000,transparent:true,opacity:0.25}));
-shadow.visible=false;
+halo.position.z=0.001; ord(halo,1); root.add(halo);
+// sombra que deja la luna al despegarse
+const shadow = new THREE.Mesh(new THREE.PlaneGeometry(meta.w*0.9, meta.h*0.75), new THREE.MeshBasicMaterial({map:shadowTex,transparent:true,opacity:0}));
+shadow.position.set(meta.cx-0.02, meta.cy+0.02, 0.002); ord(shadow,1); root.add(shadow);
 
-// 3) humo saliendo del cigarro (punta aprox. en el 66% x, 52% y de la capa luna)
-const smokeTex = dotTex('rgba(255,255,255,0.9)'); const smokes=[];
-function puff(){const m=new THREE.Sprite(new THREE.SpriteMaterial({map:smokeTex,transparent:true,opacity:0.7,depthWrite:false}));
-  m.position.set(meta.cx+meta.w*0.20, meta.cy+meta.h*0.06, 0.03); m.scale.setScalar(0.03); m.userData={v:0.06+Math.random()*0.04,dx:(Math.random()-.4)*0.03,life:0};
-  ov(m,4); root.add(m); smokes.push(m);}
+// 2) la luna: se despega del sticker y queda flotando en 3D
+const bodyBottom = C.body.y*meta.h + meta.cy - C.body.h*meta.h/2;
+const rig = new THREE.Group(); rig.position.set(meta.cx, bodyBottom, 0); root.add(rig);   // bisagra en la punta de abajo
+const moon = new THREE.Group(); rig.add(moon);
+const at=(m,z,ro)=>{m.position.set(m.userData.home.x-rig.position.x, m.userData.home.y-rig.position.y, z); ord(m,ro); moon.add(m); return m;};
+const body = at(layer('body'),0.000,10);
+const cig  = at(layer('cig'), 0.012,12);
+const wisp = at(layer('smoke'),0.030,13);
+const star = at(layer('star'),0.040,14);
+// párpado: se dibuja con el color del cuerpo y una línea de pestaña
+const E=meta.ojo, lidW=(E.x1-E.x0)*meta.w, lidH=(E.y1-E.y0)*meta.h;
+const lidTex = canvasTex(256,140,(g,w,h)=>{g.fillStyle=meta.cuerpo;g.beginPath();g.ellipse(w/2,h*0.48,w*0.47,h*0.44,0,0,7);g.fill();
+  g.strokeStyle='#121014';g.lineWidth=13;g.lineCap='round';g.beginPath();g.moveTo(w*0.05,h*0.5);g.quadraticCurveTo(w*0.5,h*0.98,w*0.95,h*0.48);g.stroke();});
+const lid = new THREE.Mesh(new THREE.PlaneGeometry(lidW,lidH), new THREE.MeshBasicMaterial({map:lidTex,transparent:true}));
+{const c=L2S((E.x0+E.x1)/2,(E.y0+E.y1)/2); lid.position.set(c.x-rig.position.x,c.y-rig.position.y,0.004);} ord(lid,11); lid.visible=false; moon.add(lid);
+// brasa del cigarro (punta de arriba a la derecha)
+const tip = L2S(C.cig.x+0.5+C.cig.w*0.40, 0.5-C.cig.y-C.cig.h*0.40);
+const ember = new THREE.Sprite(new THREE.SpriteMaterial({map:glowTex,transparent:true,blending:THREE.AdditiveBlending,depthWrite:false}));
+ember.position.set(tip.x-rig.position.x, tip.y-rig.position.y, 0.02); ember.scale.setScalar(0.05); ord(ember,15); moon.add(ember);
+const mouth = L2S(0.56,0.57);
+const tearAt = L2S(C.tear.x+0.5, 0.5-C.tear.y);
 
-// 4) efecto propio de cada sticker
-const fx=[];
-function spawn(){
+/* ---------- partículas ---------- */
+const parts=[];
+function addPart(o,ro,u){ord(o,ro);o.userData=Object.assign({life:0},u);root.add(o);parts.push(o);return o;}
+const smokeT = softTex(T.smoke), ringT = ringTex(T.smoke), rippleT = ringTex(T.c1);
+const worldOf=(obj)=>{const v=new THREE.Vector3();obj.getWorldPosition(v);return root.worldToLocal(v);};
+function puff(big){ const p=worldOf(ember);
+  addPart(new THREE.Sprite(new THREE.SpriteMaterial({map:smokeT,transparent:true,opacity:.75,depthWrite:false})),20,
+    {kind:'puff',max:big?3:2.2,p0:p.clone(),vx:(rnd()-.3)*0.03,vy:0.07+rnd()*0.05,vz:0.05+rnd()*0.05,s0:big?0.05:0.03}); }
+function smokeRing(){ const m=new THREE.Vector3(mouth.x,mouth.y,0); const o=moon.localToWorld(new THREE.Vector3(mouth.x-rig.position.x,mouth.y-rig.position.y,0.02)); root.worldToLocal(o);
+  addPart(new THREE.Sprite(new THREE.SpriteMaterial({map:ringT,transparent:true,opacity:.9,depthWrite:false})),21,{kind:'ring',max:2.4,p0:o.clone()}); }
+function tearDrop(){ const o=moon.localToWorld(new THREE.Vector3(tearAt.x-rig.position.x,tearAt.y-rig.position.y,0.01)); root.worldToLocal(o);
+  const tr=C.tear; const m=layer('tear'); m.position.copy(o);
+  addPart(m,22,{kind:'tear',max:3,p0:o.clone(),vz:0}); }
+function ripple(x,y){ addPart(new THREE.Mesh(new THREE.PlaneGeometry(0.1,0.1),new THREE.MeshBasicMaterial({map:rippleT,transparent:true,opacity:1})),3,{kind:'ripple',max:1.4,p0:new THREE.Vector3(x,y,0.003)}); }
+
+// efecto propio de cada sticker (se conserva)
+function spawnFx(){
   if(T.fx==='estrellas' || T.fx==='constelacion'){
-    const s=new THREE.Sprite(new THREE.SpriteMaterial({map:starTex(Math.random()<.5?T.c1:T.c3),transparent:true,depthWrite:false}));
-    const a=Math.random()*Math.PI*2, r=0.35+Math.random()*0.5; s.position.set(Math.cos(a)*r, Math.sin(a)*r, 0.05+Math.random()*0.35);
-    s.userData={life:0,max:2+Math.random()*2,base:0.03+Math.random()*0.04,tw:Math.random()*6}; ov(s,5); root.add(s); fx.push(s);
+    const s=new THREE.Sprite(new THREE.SpriteMaterial({map:starTex(rnd()<.5?T.c1:T.c3),transparent:true,depthWrite:false}));
+    const a=rnd()*Math.PI*2, r=0.35+rnd()*0.5; s.position.set(Math.cos(a)*r, Math.sin(a)*r, 0.05+rnd()*0.35);
+    addPart(s,5,{kind:'star',max:2+rnd()*2,base:0.03+rnd()*0.04,tw:rnd()*6});
   } else if(T.fx==='velocidad'){
-    const col=Math.random()<.6?T.c1:T.c2; const m=new THREE.Mesh(new THREE.PlaneGeometry(0.35+Math.random()*0.4,0.012+Math.random()*0.012),
-      new THREE.MeshBasicMaterial({color:col,transparent:true,opacity:0.9,depthWrite:false}));
-    const side=Math.random()<.5?-1:1; m.position.set(side*1.4,(Math.random()-.5)*0.9,0.05+Math.random()*0.25);
-    m.userData={life:0,max:0.6,v:-side*(2.6+Math.random()*1.5)}; ov(m,5); root.add(m); fx.push(m);
+    const col=rnd()<.6?T.c1:T.c2; const m=new THREE.Mesh(new THREE.PlaneGeometry(0.35+rnd()*0.4,0.012+rnd()*0.012),new THREE.MeshBasicMaterial({color:col,transparent:true,opacity:0.9}));
+    const side=rnd()<.5?-1:1; m.position.set(side*1.4,(rnd()-.5)*0.9,0.05+rnd()*0.25); addPart(m,5,{kind:'speed',max:0.6,v:-side*(2.6+rnd()*1.5)});
   } else if(T.fx==='mariposas'){
-    const g=new THREE.Group(); const open=flyTex(T.c1,'#151311','#FBF4E4',1), shut=flyTex(T.c1,'#151311','#FBF4E4',0.35);
-    const sp=new THREE.Sprite(new THREE.SpriteMaterial({map:open,transparent:true,depthWrite:false})); sp.scale.setScalar(0.09+Math.random()*0.05); g.add(sp);
-    g.position.set((Math.random()-.5)*0.5,(Math.random()-.5)*0.5,0.03);
-    g.userData={life:0,max:4+Math.random()*2,a:Math.random()*6.28,r:0.25+Math.random()*0.35,up:0.08+Math.random()*0.08,open,shut,sp,ph:Math.random()*6}; ov(g,5); root.add(g); fx.push(g);
+    const open=flyTex(T.c1,'#151311','#FBF4E4',1), shut=flyTex(T.c1,'#151311','#FBF4E4',0.35);
+    const sp=new THREE.Sprite(new THREE.SpriteMaterial({map:open,transparent:true,depthWrite:false})); sp.scale.setScalar(0.09+rnd()*0.05);
+    sp.position.set((rnd()-.5)*0.5,(rnd()-.5)*0.5,0.03); addPart(sp,5,{kind:'fly',max:4+rnd()*2,a:rnd()*6.28,r:0.25+rnd()*0.35,up:0.08+rnd()*0.08,open,shut,ph:rnd()*6});
   }
 }
-let constellation=null;
-function onKick(){
-  for(let i=0;i<(T.fx==='velocidad'?3:1);i++) spawn();
-  if(Math.random()<0.5) puff();
-}
-// constelación (Original): líneas entre estrellas en momentos fuertes
-function drawConstellation(){
-  if(constellation){root.remove(constellation);}
-  const pts=fx.filter(o=>o.isSprite).slice(-7).map(o=>o.position.clone()); if(pts.length<3) return;
-  constellation=new THREE.Line(new THREE.BufferGeometry().setFromPoints(pts),new THREE.LineBasicMaterial({color:T.c1,transparent:true,opacity:0.8}));
-  constellation.userData={life:0}; ov(constellation,5); root.add(constellation);
-}
 
-/* ---------- animación ---------- */
-const clock = new THREE.Clock(); let found=false;
-anchor.onTargetFound = ()=>{found=true; document.getElementById('hint').classList.add('off'); if(audioEl&&audioEl.paused) audioEl.play();};
-anchor.onTargetLost  = ()=>{found=false; document.getElementById('hint').classList.remove('off'); if(audioEl) audioEl.pause();};
-let ambient=0;
-function loop(){
-  const dt=Math.min(clock.getDelta(),0.05), t=clock.elapsedTime;
-  readAudio(t);
-  // luna: flota, se mece y "late"
-  moonPivot.position.z = 0.02 + 0.03*Math.sin(t*1.3) + kick*0.03;
-  moonPivot.rotation.z = 0.06*Math.sin(t*2.1) + kick*0.05;
-  moonMesh.scale.setScalar(1 + kick*0.06);
-  halo.material.opacity = 0.15*energy + kick*0.55; halo.scale.setScalar(1+kick*0.06);
-  // sin audio aún: genera algo de ambiente
-  ambient+=dt; if(ambient>(analyser?0.9:0.5)){ambient=0; spawn(); if(Math.random()<.6) puff();}
-  // humo
-  for(let i=smokes.length-1;i>=0;i--){const m=smokes[i],u=m.userData;u.life+=dt;m.position.y+=u.v*dt;m.position.x+=u.dx*dt;m.position.z+=0.02*dt;
-    m.scale.setScalar(0.03+u.life*0.06);m.material.opacity=Math.max(0,0.7-u.life*0.35);if(u.life>2){root.remove(m);smokes.splice(i,1);}}
-  // efectos
-  for(let i=fx.length-1;i>=0;i--){const o=fx[i],u=o.userData;u.life+=dt;
-    if(T.fx==='estrellas'||T.fx==='constelacion'){const k=Math.sin(Math.min(1,u.life/u.max)*Math.PI);o.scale.setScalar(u.base*(0.6+0.6*k+kick*0.6)*(0.8+0.2*Math.sin(t*8+u.tw)));o.material.opacity=k;}
-    else if(T.fx==='velocidad'){o.position.x+=u.v*dt;o.material.opacity=Math.max(0,1-u.life/u.max);}
-    else if(T.fx==='mariposas'){u.a+=dt*0.9;o.position.x=Math.cos(u.a)*u.r*(1+u.life*0.15);o.position.y=Math.sin(u.a)*u.r*0.6+u.life*u.up;o.position.z=0.05+u.life*0.08;
-      u.sp.material.map=(Math.sin(t*14+u.ph)>0)?u.open:u.shut;u.sp.material.opacity=Math.min(1,(u.max-u.life));}
-    if(u.life>u.max){root.remove(o);fx.splice(i,1);}}
-  if(T.fx==='constelacion'){ if(kick>0.95 && Math.random()<0.25) drawConstellation(); if(constellation){constellation.userData.life+=dt;constellation.material.opacity=Math.max(0,0.8-constellation.userData.life*0.4);} }
-  renderer.render(scene,camera);
-}
 
-document.getElementById('go').addEventListener('click', async ()=>{
-  const err=document.getElementById('err');
-  try{
-    setupAudio(); await actx.resume();
-    await mind.start();
-    document.getElementById('start').style.display='none';
-    document.getElementById('hint').classList.remove('off');
-    renderer.setAnimationLoop(loop);
-  }catch(e){ err.textContent='No se pudo abrir la cámara. Revisa los permisos del navegador e inténtalo de nuevo. ('+(e&&e.message||e)+')'; console.error(e); }
+// estrellas que pasan y katakana flotando (como en el visual de Algo Leve)
+const KANA=['イ','ェ','メ','ロ','フ','ォ','ニ'], KCOL=[T.c1,T.c2,T.c3].filter(c=>c!=='#151311'), kanaCache={}, starCache={};
+const JPF='"Hiragino Sans","Hiragino Kaku Gothic ProN","Noto Sans JP","Noto Sans CJK JP","Yu Gothic","Meiryo",sans-serif';
+function kanaTex(ch,col){const k=ch+col; if(kanaCache[k]) return kanaCache[k]; const W=ch.length>1?768:128;
+  return kanaCache[k]=canvasTex(W,128,(g,w,h)=>{g.font=`900 ${ch.length>1?86:96}px ${JPF}`;g.textAlign='center';g.textBaseline='middle';
+    g.lineJoin='round';g.lineWidth=14;g.strokeStyle='#121014';g.strokeText(ch,w/2,h/2+4);g.fillStyle=col;g.fillText(ch,w/2,h/2+4);});}
+const sTex=(col)=>starCache[col]||(starCache[col]=starTex(col));
+function streamStar(){ const a=rnd()*Math.PI*2, r=0.05+rnd()*0.45, col=[T.c1,T.c3,'#F3E08A','#FFFFFF'][Math.floor(rnd()*4)];
+  const s=new THREE.Sprite(new THREE.SpriteMaterial({map:sTex(col),transparent:true,depthWrite:false}));
+  s.position.set(Math.cos(a)*r,Math.sin(a)*r,0.02);
+  addPart(s,6,{kind:'stream',max:1.2+rnd()*0.9,dir:new THREE.Vector3(Math.cos(a)*(0.25+rnd()*0.5),Math.sin(a)*(0.25+rnd()*0.5),0.6+rnd()*0.7),base:0.012+rnd()*0.02,tw:rnd()*6}); }
+function kana(word){ const ch=word?'イェメロフォニ':KANA[Math.floor(rnd()*KANA.length)], col=KCOL[Math.floor(rnd()*KCOL.length)];
+  const s=new THREE.Sprite(new THREE.SpriteMaterial({map:kanaTex(ch,col),transparent:true,depthWrite:false}));
+  const side=rnd()<.5?-1:1;
+  if(word){ const tx=text.userData.home; s.position.set(tx.x,tx.y,0.01); addPart(s,16,{kind:'kana',max:3.2,w:0.66,h:0.11,vx:0,vy:-0.02,vz:0.16,rot:0}); }
+  else { s.position.set(side*(0.3+rnd()*0.25),(rnd()-.5)*0.7,0.04+rnd()*0.1); const z=0.07+rnd()*0.06;
+    addPart(s,7,{kind:'kana',max:2.2+rnd()*1.2,w:z,h:z,vx:side*0.03,vy:0.06+rnd()*0.06,vz:0.08+rnd()*0.08,rot:(rnd()-.5)*0.6}); } }
+
+/* ---------- coreografía ---------- */
+const EVS=[]; const EV=(n,t)=>{ if(DEMO) EVS.push([n,+t.toFixed(2)]); }; window.__ev=EVS;
+let dbl=false, found=DEMO, foundAt=0, clockT=0, nextBlink=2.2, blinkUntil=-1, nextTear=4.5, nextRing=3.2, spin=-1;
+function onKick(t){
+  if(t-foundAt<1.2) return;
+  if(rnd()<0.7) puff(false);
+  for(let i=0;i<5;i++) streamStar(); if(rnd()<0.45) kana(false); if(kicks%32===16) kana(true);
+  spawnFx(); if(T.fx==='velocidad'){spawnFx();spawnFx();}
+  if(kicks%16===0){ smokeRing(); EV('ring',t); }
+  if(kicks%32===0 && kicks>0) {spin=t; EV('spin',t);}           // cada 32 golpes: la luna da una vuelta
+}
+const ease=(x)=>{x=Math.min(1,Math.max(0,x));const c1=1.70158,c3=c1+1;return 1+c3*Math.pow(x-1,3)+c1*Math.pow(x-1,2);};
+function step(dt){
+  clockT+=dt; const t=clockT; readAudio(t);
+  const w = found ? t-foundAt : 0;
+  const up = ease(w/1.4);                                   // despegue 0 → 1
+  // luna: se levanta, se inclina hacia ti, flota y respira con el bombo
+  rig.position.z = 0.17*up + 0.018*Math.sin(t*1.6)*up + kick*0.02*up;
+  rig.rotation.x = 0.42*up;
+  rig.rotation.z = 0.05*Math.sin(t*1.1)*up;
+  let sp=0; if(spin>0){const k=(t-spin)/1.1; if(k<1) sp=ease(k)*Math.PI*2; else spin=-1;}
+  {const cx=meta.cx-rig.position.x, cy=meta.cy-rig.position.y, c=Math.cos(sp), s=Math.sin(sp); moon.rotation.z=sp; moon.position.set(cx-(cx*c-cy*s), cy-(cx*s+cy*c), 0);}
+  body.scale.set(1+kick*0.035, 1-kick*0.03, 1);
+  shadow.material.opacity = 0.55*up; shadow.scale.setScalar(1+0.25*up+kick*0.05);
+  halo.material.opacity = (0.12*energy + kick*0.45)*up;
+  // humo dibujado: se estira y se mece
+  wisp.position.z = 0.03+0.05*up; wisp.rotation.z = 0.12*Math.sin(t*2.3); wisp.scale.y = 1+0.12*Math.sin(t*1.7)+kick*0.15;
+  // estrella: orbita alrededor de la luna
+  const sa=t*0.9; star.position.set(star.userData.home.x-rig.position.x + Math.cos(sa)*0.06*up, star.userData.home.y-rig.position.y + Math.sin(sa)*0.04*up, 0.04+0.08*up*(0.5+0.5*Math.sin(sa)));
+  star.rotation.z = t*1.2*up;
+  // brasa
+  ember.material.opacity = 0.35+0.65*kick; ember.scale.setScalar(0.045+0.05*kick);
+  // parpadeo
+  if(t>nextBlink){ blinkUntil=t+0.13; EV('blink',t); nextBlink=t+2.5+rnd()*3.5; if(!dbl && rnd()<0.3){ nextBlink=t+0.32; dbl=true; } else dbl=false; }
+  lid.visible = t<blinkUntil && up>0.5;
+  // lágrima que cae y salpica el sticker
+  if(found && w>2 && t>nextTear){ tearDrop(); EV('tear',t); nextTear=t+7+rnd()*4; }
+  if(found && w>2 && t>nextRing && !analyser){ smokeRing(); EV('ring',t); nextRing=t+6+rnd()*3; }
+  if(found && w>1.2){ if(rnd()<dt*14) streamStar(); if(rnd()<dt*0.9) kana(false); }
+  // sin bombo detectado: mantiene vida
+  if(t-lastKick>1.6 && rnd()<dt*1.2){ spawnFx(); if(rnd()<.6) puff(false); }
+  // partículas
+  for(let i=parts.length-1;i>=0;i--){const o=parts[i],u=o.userData;u.life+=dt;const f=u.life/u.max;
+    if(u.kind==='puff'){o.position.set(u.p0.x+u.vx*u.life,u.p0.y+u.vy*u.life,u.p0.z+u.vz*u.life);o.scale.setScalar(u.s0+u.life*0.07);o.material.opacity=Math.max(0,0.75*(1-f));}
+    else if(u.kind==='ring'){o.position.set(u.p0.x+0.03*u.life,u.p0.y+0.05*u.life,u.p0.z+0.22*u.life);o.scale.setScalar(0.05+u.life*0.16);o.material.opacity=Math.max(0,0.9*(1-f));}
+    else if(u.kind==='tear'){u.vz-=0.9*dt;o.position.z=Math.max(0.004,u.p0.z+0.0+u.vz*u.life*0.5);o.position.y=u.p0.y-0.05*u.life;
+      if(o.position.z<=0.004 && !u.hit){u.hit=true;EV('splash',t);ripple(o.position.x,o.position.y);halo.material.opacity=0.8;u.max=u.life+0.15;} o.material.opacity=u.hit?0:1;}
+    else if(u.kind==='ripple'){o.position.copy(u.p0);o.scale.setScalar(0.3+f*7);o.material.opacity=Math.max(0,1-f);}
+    else if(u.kind==='star'){const k=Math.sin(Math.min(1,f)*Math.PI);o.scale.setScalar(u.base*(0.6+0.6*k+kick*0.6)*(0.8+0.2*Math.sin(t*8+u.tw)));o.material.opacity=k;}
+    else if(u.kind==='stream'){o.position.addScaledVector(u.dir,dt);const k=Math.sin(Math.min(1,f)*Math.PI);o.scale.setScalar(u.base*(1+u.life*2.2)*(0.8+0.3*Math.sin(t*10+u.tw)));o.material.opacity=k;}
+    else if(u.kind==='kana'){o.position.x+=u.vx*dt;o.position.y+=u.vy*dt;o.position.z+=u.vz*dt;o.material.rotation+=u.rot*dt;o.scale.set(u.w,u.h,1);o.material.opacity=Math.min(1,u.life*3,(u.max-u.life)*1.5);}
+    else if(u.kind==='speed'){o.position.x+=u.v*dt;o.material.opacity=Math.max(0,1-f);}
+    else if(u.kind==='fly'){u.a+=dt*0.9;o.position.set(Math.cos(u.a)*u.r*(1+u.life*0.15),Math.sin(u.a)*u.r*0.6+u.life*u.up,0.05+u.life*0.08);
+      o.material.map=(Math.sin(t*14+u.ph)>0)?u.open:u.shut;o.material.opacity=Math.min(1,u.max-u.life);}
+    if(u.life>u.max){root.remove(o);parts.splice(i,1);}}
+}
+// tocar la luna: guiño y aro de humo grande
+renderer.domElement.addEventListener('pointerdown',(e)=>{
+  const r=renderer.domElement.getBoundingClientRect(), v=new THREE.Vector2(((e.clientX-r.left)/r.width)*2-1,-((e.clientY-r.top)/r.height)*2+1);
+  const rc=new THREE.Raycaster(); rc.setFromCamera(v,camera);
+  if(rc.intersectObject(body,false).length){ blinkUntil=clockT+0.35; smokeRing(); puff(true); for(let i=0;i<4;i++) spawnFx(); }
 });
+
+let last=performance.now();
+function loop(){ const now=performance.now(), dt=Math.min((now-last)/1000,0.05); last=now; step(dt); renderer.render(scene,camera); }
+if(DEMO){
+  document.getElementById('start').style.display='none';
+  window.__setT=(t)=>{ while(clockT<t) step(1/60); renderer.render(scene,camera); return parts.length; };
+  if(!P.has('still')) renderer.setAnimationLoop(loop); else renderer.render(scene,camera);
+} else {
+  document.getElementById('go').addEventListener('click', async ()=>{
+    const err=document.getElementById('err');
+    try{
+      setupAudio(); await actx.resume();
+      await mind.start();
+      document.getElementById('start').style.display='none';
+      document.getElementById('hint').classList.remove('off');
+      renderer.setAnimationLoop(loop);
+    }catch(e){ err.textContent='No se pudo abrir la cámara. Revisa los permisos del navegador e inténtalo de nuevo. ('+(e&&e.message||e)+')'; console.error(e); }
+  });
+}
 window.__arReady = true;
 </script>
 </body>
